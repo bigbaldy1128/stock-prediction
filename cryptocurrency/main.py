@@ -1,5 +1,6 @@
 import datetime
 
+import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -7,7 +8,9 @@ from sklearn.preprocessing import MinMaxScaler
 
 from cryptocurrency.model import MyModel
 
-df = pd.read_csv("./data/btcusdt.csv", usecols=['Open', 'High', 'Low', 'Close', 'Volume'])
+df = pd.read_csv("./data/btcusdt.csv", usecols=['Open time', 'Open', 'High', 'Low', 'Close', 'Volume'])
+# df = df[df["Open time"] > 1589414400000]
+df = df.drop(['Open time'], axis=1)
 mms = MinMaxScaler()
 df[['Open', 'High', 'Low', 'Close', 'Volume']] = mms.fit_transform(df[['Open', 'High', 'Low', 'Close', 'Volume']])
 
@@ -20,16 +23,18 @@ futureDay = 30
 
 for i in range(df.shape[0] - pastDay - futureDay):
     x_data.append(np.array(df.iloc[i:i + pastDay]))
-    current = df.iloc[i + pastDay]['Close']
+    current = (df.iloc[i + pastDay]['High'] + df.iloc[i + pastDay]['Low']) / 2
     rate = 0
     for j in range(0, pastDay):
-        if df.iloc[i + pastDay]['Close'] - current > 0:
-            rate = rate + 1 / futureDay
+        hl2 = (df.iloc[i + j]['High'] + df.iloc[i + j]['Low']) / 2
+        if hl2 / current > 1.01:
+            rate = rate + 1 / pastDay
     x_data_implicit.append(int(rate * 10))
 
     rate = 0
     for j in range(1, futureDay):
-        if df.iloc[i + pastDay + j]['Close'] - current > 0:
+        hl2 = (df.iloc[i + pastDay + j]['High'] + df.iloc[i + pastDay + j]['Low']) / 2
+        if hl2 / current > 1.01:
             rate = rate + 1 / futureDay
 
     if rate > 0.2:
@@ -58,16 +63,25 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir)
 
 history = model.fit([x_train, x_train_implicit],
                     y_train,
-                    epochs=10,
+                    epochs=100,
                     verbose=2,
                     callbacks=[tensorboard_callback])
 
 y_pred = model.predict([x_test, x_test_implicit])
 model.evaluate([x_test, x_test_implicit], y_test)
 
-x = []
-x_implicit = []
-for i in range(1, 50):
-    x.append(x_test[-i])
-    x_implicit.append(x_test_implicit[-i])
-print(model.predict([np.array(x), np.array(x_implicit)]))
+length = 100
+y_pred = np.squeeze(y_pred[-length:])
+df = df[-length:]
+y_actual = ((df['High'] - df['Low']) / 2).to_numpy()
+y_actual = np.expand_dims(y_actual, axis=1)
+y_actual = MinMaxScaler().fit_transform(y_actual)
+y_actual = np.squeeze(y_actual)
+
+epochs = range(length)
+plt.figure()
+plt.plot(epochs, y_pred, 'b', label='prediction')
+plt.plot(epochs, y_actual, 'r', label='actual')
+plt.title("Prediction for BTC")
+plt.legend()
+plt.show()

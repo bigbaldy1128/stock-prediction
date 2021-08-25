@@ -1,8 +1,8 @@
 # @author wangjinzhao on 2021/8/23
 # reference https://www.analyticsvidhya.com/blog/2021/05/bitcoin-price-prediction-using-recurrent-neural-networks-and-lstm/
-from tensorflow.python import RandomNormal
 from tensorflow.python.keras import regularizers, Model, Input
 from tensorflow.python.keras.layers import GRU, Dropout, Embedding, Concatenate, Dense, Flatten
+from tensorflow.python.ops.init_ops_v2 import RandomNormal
 
 
 def MyModel():
